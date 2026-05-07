@@ -1,0 +1,5 @@
+Checks: "clang-diagnostic-*,clang-analyzer-*,cppcoreguidelines-*,modernize-*,-modernize-use-trailing-return-type,-cppcoreguidelines-owning-memory,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-cppcoreguidelines-avoid-do-while,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-type-reinterpret-cast,-cppcoreguidelines-pro-type-const-cast,-cppcoreguidelines-missing-std-forward"
+WarningsAsErrors: true
+CheckOptions:
+  - key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted
+    value: true
