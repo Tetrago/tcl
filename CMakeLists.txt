@@ -1,15 +1,16 @@
 cmake_minimum_required(VERSION 3.10)
 project(tcl LANGUAGES CXX)
 
+set(components deque forward_list)
+
 option(TCL_BUILD_TESTS "Build unit tests" ON)
 option(TCL_ENABLE_COVERAGE "Enable coverage reporting" OFF)
 option(TCL_ENABLE_ASAN "Enable address sanitization" OFF)
 
-set(HEADERS "forward_list.hpp")
+list(TRANSFORM components PREPEND "include/tcl/" OUTPUT_VARIABLE headers)
+list(TRANSFORM headers APPEND ".hpp")
 
-list(TRANSFORM HEADERS PREPEND "include/tcl/")
-
-add_library(${PROJECT_NAME} INTERFACE ${HEADERS})
+add_library(${PROJECT_NAME} INTERFACE ${headers})
 
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_20)
 
@@ -29,11 +30,10 @@ if(TCL_BUILD_TESTS)
 
     FetchContent_MakeAvailable(Catch2)
 
-    set(TEST_SOURCES "forward_list.cpp")
+    list(TRANSFORM components PREPEND "tests/" OUTPUT_VARIABLE test_sources)
+    list(TRANSFORM test_sources APPEND ".cpp")
 
-    list(TRANSFORM TEST_SOURCES PREPEND "tests/")
-
-    add_executable(${PROJECT_NAME}_tests ${TEST_SOURCES})
+    add_executable(${PROJECT_NAME}_tests ${test_sources})
 
     target_link_libraries(
         ${PROJECT_NAME}_tests
@@ -49,7 +49,7 @@ if(TCL_BUILD_TESTS)
         set(PROFDATA_FILE "${COVERAGE_DIR}/coverage.profdata")
 
         if(LLVM_PROFDATA AND LLVM_COV AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-            add_executable(${PROJECT_NAME}_tests_cov ${TEST_SOURCES})
+            add_executable(${PROJECT_NAME}_tests_cov ${test_sources})
 
             target_link_libraries(
                 ${PROJECT_NAME}_tests_cov
@@ -96,7 +96,7 @@ if(TCL_BUILD_TESTS)
 
     if(TCL_ENABLE_ASAN)
         if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-            add_executable(${PROJECT_NAME}_tests_asan ${TEST_SOURCES})
+            add_executable(${PROJECT_NAME}_tests_asan ${test_sources})
 
             target_link_libraries(
                 ${PROJECT_NAME}_tests_asan

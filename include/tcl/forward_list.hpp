@@ -3,6 +3,7 @@
 
 #include <initializer_list>
 #include <iterator>
+#include <memory>
 #include <ranges>
 #include <type_traits>
 #include <utility>
@@ -33,15 +34,14 @@ namespace tcl
 		using node_alloc_traits   = std::allocator_traits<node_allocator_type>;
 
 	public:
-		using value_type     = T;
-		using size_type      = std::size_t;
-		using iterator       = iterator_impl<false>;
-		using const_iterator = iterator_impl<true>;
 		using allocator_type = Allocator;
+		using const_iterator = iterator_impl<true>;
+		using iterator       = iterator_impl<false>;
+		using size_type      = std::size_t;
+		using value_type     = T;
 
 		forward_list(const Allocator& alloc = Allocator{}) noexcept(
-		    noexcept(Allocator{}));
-
+		    std::is_nothrow_constructible_v<Allocator, const Allocator&>);
 		~forward_list() noexcept;
 
 		forward_list(std::size_t size, const Allocator& alloc = Allocator{})
@@ -303,8 +303,8 @@ namespace tcl
 	class forward_list<T, Allocator>::iterator_impl
 	{
 	public:
-		using iterator_category = std::forward_iterator_tag;
 		using difference_type   = std::ptrdiff_t;
+		using iterator_category = std::forward_iterator_tag;
 		using pointer           = std::conditional_t<C, const T*, T*>;
 		using reference         = std::conditional_t<C, const T&, T&>;
 		using value_type        = T;
@@ -325,10 +325,7 @@ namespace tcl
 		    : node_(other.node_)
 		{}
 
-		[[nodiscard]] pointer operator->() const noexcept
-		{
-			return &node_->value;
-		}
+		pointer operator->() const noexcept { return &node_->value; }
 
 		[[nodiscard]] reference operator*() const noexcept
 		{
@@ -377,8 +374,9 @@ static_assert(
     !std::output_iterator<tcl::forward_list<int>::const_iterator, int>);
 
 template <typename T, typename Allocator>
-inline tcl::forward_list<T, Allocator>::forward_list(
-    const Allocator& alloc) noexcept(noexcept(Allocator{}))
+inline tcl::forward_list<T, Allocator>::
+    forward_list(const Allocator& alloc) noexcept(
+        std::is_nothrow_constructible_v<Allocator, const Allocator&>)
     : alloc_(alloc)
 {}
 
