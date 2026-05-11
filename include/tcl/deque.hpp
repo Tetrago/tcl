@@ -67,11 +67,17 @@ namespace tcl
 
 		[[nodiscard]] iterator end() noexcept { return {}; }
 
-		[[nodiscard]] const_iterator begin() const noexcept { return begin(); }
+		[[nodiscard]] const_iterator begin() const noexcept
+		{
+			return {this, front_};
+		}
 
 		[[nodiscard]] const_iterator end() const noexcept { return {}; }
 
-		[[nodiscard]] const_iterator cbegin() const noexcept { return begin(); }
+		[[nodiscard]] const_iterator cbegin() const noexcept
+		{
+			return {this, front_};
+		}
 
 		[[nodiscard]] const_iterator cend() const noexcept { return {}; }
 
@@ -167,17 +173,19 @@ namespace tcl
 	private:
 		friend deque;
 
+		using deque_pointer = std::conditional_t<C, const deque*, deque*>;
+
 		[[nodiscard]] friend iterator_impl operator+(
 		    difference_type lhs, const iterator_impl& rhs) noexcept
 		{
 			return lhs + rhs;
 		}
 
-		iterator_impl(deque* deque, std::size_t pos) noexcept
+		iterator_impl(deque_pointer deque, std::size_t pos) noexcept
 		    : deque_(deque), pos_(pos)
 		{}
 
-		deque* deque_    = nullptr;
+		deque_pointer deque_ = nullptr;
 		std::size_t pos_ = 0; /**< The position in the data array (not index) */
 	};
 } // namespace tcl
@@ -200,14 +208,7 @@ inline tcl::deque<T, Allocator>::~deque() noexcept
 {
 	if (data_)
 	{
-		if constexpr (!std::is_trivially_destructible_v<T>)
-		{
-			for (T& value : *this)
-			{
-				alloc_traits::destroy(alloc_, &value);
-			}
-		}
-
+		clear();
 		alloc_traits::deallocate(alloc_, data_, capacity_);
 	}
 }
@@ -300,7 +301,7 @@ inline T& tcl::deque<T, Allocator>::push_front(const T& value)
 		reserve(capacity_ * 2);
 	}
 
-	std::size_t p = (capacity_ + front_ - 1) % capacity_;
+	std::size_t p = size_ == 0 ? front_ : (capacity_ + front_ - 1) % capacity_;
 	alloc_traits::construct(alloc_, &data_[p], value);
 	front_ = p;
 	++size_;
@@ -317,7 +318,7 @@ inline T& tcl::deque<T, Allocator>::push_front(T&& value)
 		reserve(capacity_ * 2);
 	}
 
-	std::size_t p = (capacity_ + front_ - 1) % capacity_;
+	std::size_t p = size_ == 0 ? front_ : (capacity_ + front_ - 1) % capacity_;
 	alloc_traits::construct(alloc_, &data_[p], std::move(value));
 	front_ = p;
 	++size_;
@@ -334,9 +335,9 @@ inline T& tcl::deque<T, Allocator>::push_back(const T& value)
 		reserve(capacity_ * 2);
 	}
 
-	std::size_t p = (capacity_ + back_) % capacity_;
+	std::size_t p = size_ == 0 ? back_ : (capacity_ + back_ + 1) % capacity_;
 	alloc_traits::construct(alloc_, &data_[p], value);
-	front_ = p;
+	back_ = p;
 	++size_;
 
 	return data_[back_];
@@ -351,9 +352,9 @@ inline T& tcl::deque<T, Allocator>::push_back(T&& value)
 		reserve(capacity_ * 2);
 	}
 
-	std::size_t p = (capacity_ + back_) % capacity_;
+	std::size_t p = size_ == 0 ? back_ : (capacity_ + back_ + 1) % capacity_;
 	alloc_traits::construct(alloc_, &data_[p], std::move(value));
-	front_ = p;
+	back_ = p;
 	++size_;
 
 	return data_[back_];
@@ -363,10 +364,9 @@ template <typename T, typename Allocator>
 inline T tcl::deque<T, Allocator>::pop_front() noexcept
     requires std::constructible_from<T, T&&>
 {
-	std::size_t p = (front_ + 1) % capacity_;
-	T value       = std::move(data_[p]);
-	alloc_traits::destroy(alloc_, &data_[p]);
-	front_ = p;
+	T value = std::move(data_[front_]);
+	alloc_traits::destroy(alloc_, &data_[front_]);
+	front_ = (front_ + 1) % capacity_;
 	--size_;
 	return value;
 }
@@ -375,9 +375,8 @@ template <typename T, typename Allocator>
 inline void tcl::deque<T, Allocator>::pop_front() noexcept
     requires(!std::constructible_from<T, T &&>)
 {
-	std::size_t p = (front_ + 1) % capacity_;
-	alloc_traits::destroy(alloc_, &data_[p]);
-	front_ = p;
+	alloc_traits::destroy(alloc_, &data_[front_]);
+	front_ = (front_ + 1) % capacity_;
 	--size_;
 }
 
@@ -385,10 +384,9 @@ template <typename T, typename Allocator>
 inline T tcl::deque<T, Allocator>::pop_back() noexcept
     requires std::constructible_from<T, T&&>
 {
-	std::size_t p = (capacity_ + back_ - 1) % capacity_;
-	T value       = std::move(data_[p]);
-	alloc_traits::destroy(alloc_, &data_[p]);
-	back_ = p;
+	T value = std::move(data_[back_]);
+	alloc_traits::destroy(alloc_, &data_[back_]);
+	back_ = (capacity_ + back_ - 1) % capacity_;
 	--size_;
 	return value;
 }
@@ -397,9 +395,8 @@ template <typename T, typename Allocator>
 inline void tcl::deque<T, Allocator>::pop_back() noexcept
     requires(!std::constructible_from<T, T &&>)
 {
-	std::size_t p = (capacity_ + back_ - 1) % capacity_;
-	alloc_traits::destroy(alloc_, &data_[p]);
-	back_ = p;
+	alloc_traits::destroy(alloc_, &data_[back_]);
+	back_ = (capacity_ + back_ - 1) % capacity_;
 	--size_;
 }
 
@@ -463,7 +460,7 @@ tcl::deque<T, Allocator>::iterator_impl<C>::operator+(
 	}
 	else
 	{
-		return {deque_, (pos_ + n) & deque_->capacity_};
+		return {deque_, (deque_->capacity_ + pos_ + n) % deque_->capacity_};
 	}
 }
 
@@ -499,8 +496,7 @@ template <bool C>
 inline tcl::deque<T, Allocator>::iterator_impl<C>&
 tcl::deque<T, Allocator>::iterator_impl<C>::operator++() noexcept
 {
-	++pos_;
-	return *this;
+	return *this += 1;
 }
 
 template <typename T, typename Allocator>
@@ -518,8 +514,7 @@ template <bool C>
 inline tcl::deque<T, Allocator>::iterator_impl<C>&
 tcl::deque<T, Allocator>::iterator_impl<C>::operator--() noexcept
 {
-	--pos_;
-	return *this;
+	return *this -= 1;
 }
 
 template <typename T, typename Allocator>
