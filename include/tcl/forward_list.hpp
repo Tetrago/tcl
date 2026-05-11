@@ -260,7 +260,7 @@ namespace tcl
 
 		[[nodiscard]] const T& front() const noexcept { return node_->value; }
 
-		[[nodiscard]] allocator_type get_allocator() const noexcept
+		[[nodiscard]] Allocator get_allocator() const noexcept
 		{
 			return alloc_;
 		}
