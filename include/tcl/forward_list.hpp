@@ -98,7 +98,8 @@ namespace tcl
 		    requires std::constructible_from<T, const T&>;
 
 		template <typename... Args>
-		T& emplace_front(Args&&... args);
+		T& emplace_front(Args&&... args)
+		    requires std::constructible_from<T, Args...>;
 
 		T& insert_after(const_iterator pos, T&& value)
 		    requires std::constructible_from<T, T&&>;
@@ -115,7 +116,8 @@ namespace tcl
 		                                     std::ranges::range_reference_t<R>>;
 
 		template <typename... Args>
-		T& emplace_after(const_iterator pos, Args&&... args);
+		T& emplace_after(const_iterator pos, Args&&... args)
+		    requires std::constructible_from<T, Args...>;
 
 		void pop_front() noexcept
 		    requires(!std::constructible_from<T, T &&>);
@@ -632,25 +634,20 @@ template <typename T, typename Allocator>
 inline T& tcl::forward_list<T, Allocator>::push_front(T&& value)
     requires std::constructible_from<T, T&&>
 {
-	Node* node = create_node(node_, std::move(value));
-	node_      = node;
-	++size_;
-	return node->value;
+	return emplace_front(std::move(value));
 }
 
 template <typename T, typename Allocator>
 inline T& tcl::forward_list<T, Allocator>::push_front(const T& value)
     requires std::constructible_from<T, const T&>
 {
-	Node* node = create_node(node_, value);
-	node_      = node;
-	++size_;
-	return node->value;
+	return emplace_front(value);
 }
 
 template <typename T, typename Allocator>
 template <typename... Args>
 inline T& tcl::forward_list<T, Allocator>::emplace_front(Args&&... args)
+    requires std::constructible_from<T, Args...>
 {
 	Node* node = create_node(node_, std::forward<Args>(args)...);
 	node_      = node;
@@ -663,10 +660,7 @@ inline T& tcl::forward_list<T, Allocator>::insert_after(const_iterator pos,
                                                         T&& value)
     requires std::constructible_from<T, T&&>
 {
-	Node* node      = create_node(pos.node_->next, std::move(value));
-	pos.node_->next = node;
-	++size_;
-	return node->value;
+	return emplace_after(pos, std::move(value));
 }
 
 template <typename T, typename Allocator>
@@ -674,10 +668,7 @@ inline T& tcl::forward_list<T, Allocator>::insert_after(const_iterator pos,
                                                         const T& value)
     requires std::constructible_from<T, const T&>
 {
-	Node* node      = create_node(pos.node_->next, value);
-	pos.node_->next = node;
-	++size_;
-	return node->value;
+	return emplace_after(pos, value);
 }
 
 template <typename T, typename Allocator>
@@ -747,6 +738,7 @@ template <typename T, typename Allocator>
 template <typename... Args>
 inline T& tcl::forward_list<T, Allocator>::emplace_after(const_iterator pos,
                                                          Args&&... args)
+    requires std::constructible_from<T, Args...>
 {
 	Node* node      = create_node(pos.node_->next, std::forward<Args>(args)...);
 	pos.node_->next = node;

@@ -39,11 +39,19 @@ namespace tcl
 		T& push_front(T&& value)
 		    requires std::constructible_from<T, T&&>;
 
+		template <typename... Args>
+		T& emplace_front(Args&&... args)
+		    requires std::constructible_from<T, Args...>;
+
 		T& push_back(const T& value)
 		    requires std::constructible_from<T, const T&>;
 
 		T& push_back(T&& value)
 		    requires std::constructible_from<T, T&&>;
+
+		template <typename... Args>
+		T& emplace_back(Args&&... args)
+		    requires std::constructible_from<T, Args...>;
 
 		T pop_front() noexcept
 		    requires std::constructible_from<T, T&&>;
@@ -296,30 +304,28 @@ template <typename T, typename Allocator>
 inline T& tcl::deque<T, Allocator>::push_front(const T& value)
     requires std::constructible_from<T, const T&>
 {
-	if (size_ == capacity_)
-	{
-		reserve(capacity_ * 2);
-	}
-
-	std::size_t p = size_ == 0 ? front_ : (capacity_ + front_ - 1) % capacity_;
-	alloc_traits::construct(alloc_, &data_[p], value);
-	front_ = p;
-	++size_;
-
-	return data_[front_];
+	return emplace_front(value);
 }
 
 template <typename T, typename Allocator>
 inline T& tcl::deque<T, Allocator>::push_front(T&& value)
     requires std::constructible_from<T, T&&>
 {
-	if (size_ == capacity_)
+	return emplace_front(std::move(value));
+}
+
+template <typename T, typename Allocator>
+template <typename... Args>
+inline T& tcl::deque<T, Allocator>::emplace_front(Args&&... args)
+    requires std::constructible_from<T, Args...>
+{
+	if (size_ == capacity_) [[unlikely]]
 	{
 		reserve(capacity_ * 2);
 	}
 
 	std::size_t p = size_ == 0 ? front_ : (capacity_ + front_ - 1) % capacity_;
-	alloc_traits::construct(alloc_, &data_[p], std::move(value));
+	alloc_traits::construct(alloc_, &data_[p], std::forward<Args>(args)...);
 	front_ = p;
 	++size_;
 
@@ -330,30 +336,28 @@ template <typename T, typename Allocator>
 inline T& tcl::deque<T, Allocator>::push_back(const T& value)
     requires std::constructible_from<T, const T&>
 {
-	if (size_ == capacity_)
-	{
-		reserve(capacity_ * 2);
-	}
-
-	std::size_t p = size_ == 0 ? back_ : (capacity_ + back_ + 1) % capacity_;
-	alloc_traits::construct(alloc_, &data_[p], value);
-	back_ = p;
-	++size_;
-
-	return data_[back_];
+	return emplace_back(value);
 }
 
 template <typename T, typename Allocator>
 inline T& tcl::deque<T, Allocator>::push_back(T&& value)
     requires std::constructible_from<T, T&&>
 {
-	if (size_ == capacity_)
+	return emplace_back(std::move(value));
+}
+
+template <typename T, typename Allocator>
+template <typename... Args>
+inline T& tcl::deque<T, Allocator>::emplace_back(Args&&... args)
+    requires std::constructible_from<T, Args...>
+{
+	if (size_ == capacity_) [[unlikely]]
 	{
 		reserve(capacity_ * 2);
 	}
 
 	std::size_t p = size_ == 0 ? back_ : (capacity_ + back_ + 1) % capacity_;
-	alloc_traits::construct(alloc_, &data_[p], std::move(value));
+	alloc_traits::construct(alloc_, &data_[p], std::forward<Args>(args)...);
 	back_ = p;
 	++size_;
 
