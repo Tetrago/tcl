@@ -71,23 +71,17 @@ namespace tcl
 		[[nodiscard]] T& at(std::size_t pos);
 		[[nodiscard]] const T& at(std::size_t pos) const;
 
-		[[nodiscard]] iterator begin() noexcept { return {this, front_}; }
+		[[nodiscard]] iterator begin() noexcept;
 
 		[[nodiscard]] iterator end() noexcept { return {}; }
 
-		[[nodiscard]] const_iterator begin() const noexcept
-		{
-			return {this, front_};
-		}
+		[[nodiscard]] const_iterator begin() const noexcept;
 
 		[[nodiscard]] const_iterator end() const noexcept { return {}; }
 
-		[[nodiscard]] const_iterator cbegin() const noexcept
-		{
-			return {this, front_};
-		}
+		[[nodiscard]] const_iterator cbegin() const noexcept { return begin(); }
 
-		[[nodiscard]] const_iterator cend() const noexcept { return {}; }
+		[[nodiscard]] const_iterator cend() const noexcept { return end(); }
 
 		[[nodiscard]] std::size_t size() const noexcept { return size_; }
 
@@ -149,7 +143,7 @@ namespace tcl
 		    : deque_(other.deque_), pos_(other, pos_)
 		{}
 
-		pointer operator->() const noexcept { return &*this; }
+		pointer operator->() const noexcept { return &(*deque_)[pos_]; }
 
 		[[nodiscard]] reference operator*() const noexcept
 		{
@@ -201,6 +195,7 @@ namespace tcl
 static_assert(std::input_iterator<tcl::deque<int>::iterator>);
 static_assert(std::output_iterator<tcl::deque<int>::iterator, int>);
 static_assert(std::random_access_iterator<tcl::deque<int>::iterator>);
+static_assert(!std::contiguous_iterator<tcl::deque<int>::iterator>);
 static_assert(std::input_iterator<tcl::deque<int>::const_iterator>);
 static_assert(!std::output_iterator<tcl::deque<int>::const_iterator, int>);
 
@@ -240,6 +235,8 @@ inline void tcl::deque<T, Allocator>::clear() noexcept
 template <typename T, typename Allocator>
 inline void tcl::deque<T, Allocator>::reserve(std::size_t n)
 {
+	// TODO: size_ == 0
+
 	if (n <= capacity_) [[unlikely]]
 	{
 		return;
@@ -259,7 +256,8 @@ inline void tcl::deque<T, Allocator>::reserve(std::size_t n)
 			else
 			{
 				std::memcpy(data, &data_[front_], sizeof(T) * (size_ - front_));
-				std::memcpy(&data[size_ - front_], data_, front_);
+				std::memcpy(
+				    &data[size_ - front_], data_, sizeof(T) * (back_ + 1));
 			}
 		}
 		else
@@ -268,6 +266,7 @@ inline void tcl::deque<T, Allocator>::reserve(std::size_t n)
 			{
 				alloc_traits::construct(
 				    alloc_, &data[i], std::move_if_noexcept(value));
+				++i;
 			}
 		}
 
@@ -276,7 +275,7 @@ inline void tcl::deque<T, Allocator>::reserve(std::size_t n)
 			{
 				for (T& value : *this)
 				{
-					alloc_traits::destroy(alloc_, &data_[i]);
+					alloc_traits::destroy(alloc_, &value);
 				}
 			}
 
@@ -290,12 +289,15 @@ inline void tcl::deque<T, Allocator>::reserve(std::size_t n)
 	}
 	catch (...)
 	{
-		while (i--)
-		{
-			alloc_traits::destroy(alloc_, &data[i]);
-		}
+		[&]() noexcept {
+			while (i--)
+			{
+				alloc_traits::destroy(alloc_, &data[i]);
+			}
 
-		alloc_traits::deallocate(alloc_, data, n);
+			alloc_traits::deallocate(alloc_, data, n);
+		}();
+
 		throw;
 	}
 }
@@ -356,7 +358,7 @@ inline T& tcl::deque<T, Allocator>::emplace_back(Args&&... args)
 		reserve(capacity_ * 2);
 	}
 
-	std::size_t p = size_ == 0 ? back_ : (capacity_ + back_ + 1) % capacity_;
+	std::size_t p = size_ == 0 ? back_ : (back_ + 1) % capacity_;
 	alloc_traits::construct(alloc_, &data_[p], std::forward<Args>(args)...);
 	back_ = p;
 	++size_;
@@ -444,12 +446,39 @@ inline const T& tcl::deque<T, Allocator>::at(std::size_t pos) const
 }
 
 template <typename T, typename Allocator>
+tcl::deque<T, Allocator>::iterator tcl::deque<T, Allocator>::begin() noexcept
+{
+	if (size_ == 0) [[unlikely]]
+	{
+		return {};
+	}
+	else
+	{
+		return {this, front_};
+	}
+}
+
+template <typename T, typename Allocator>
+tcl::deque<T, Allocator>::const_iterator tcl::deque<T, Allocator>::begin()
+    const noexcept
+{
+	if (size_ == 0) [[unlikely]]
+	{
+		return {};
+	}
+	else
+	{
+		return {this, front_};
+	}
+}
+
+template <typename T, typename Allocator>
 template <bool C>
 inline tcl::deque<T, Allocator>::iterator_impl<C>::reference
 tcl::deque<T, Allocator>::iterator_impl<C>::operator[](
     difference_type n) const noexcept
 {
-	return *(*this + n);
+	return deque_->data_[(deque_->capacity_ + pos_ + n) % deque_->capacity_];
 }
 
 template <typename T, typename Allocator>
@@ -458,7 +487,7 @@ inline tcl::deque<T, Allocator>::iterator_impl<C>
 tcl::deque<T, Allocator>::iterator_impl<C>::operator+(
     difference_type n) const noexcept
 {
-	if (deque_->size_ != 0 && pos_ == deque_->back_)
+	if (pos_ == deque_->back_ && n > 0)
 	{
 		return {};
 	}
@@ -537,7 +566,11 @@ inline tcl::deque<T, Allocator>::iterator_impl<C>::difference_type
 tcl::deque<T, Allocator>::iterator_impl<C>::operator-(
     const iterator_impl& rhs) const noexcept
 {
-	return ((deque_->capacity_ + pos_) - rhs.pos_) % deque_->capacity_;
+	auto normalize = [this](std::ptrdiff_t pos) {
+		return (pos - deque_->front_ + deque_->capacity_) % deque_->capacity_;
+	};
+
+	return normalize(pos_) - normalize(rhs.pos_);
 }
 
 template <typename T, typename Allocator>
@@ -568,7 +601,20 @@ tcl::deque<T, Allocator>::iterator_impl<C>::operator<=>(
 	}
 	else
 	{
-		return *this - rhs;
+		auto difference = *this - rhs;
+
+		if (difference > 0)
+		{
+			return std::partial_ordering::greater;
+		}
+		else if (difference < 0)
+		{
+			return std::partial_ordering::less;
+		}
+		else
+		{
+			return std::partial_ordering::equivalent;
+		}
 	}
 }
 
