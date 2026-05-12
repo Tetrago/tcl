@@ -45,12 +45,12 @@ namespace tcl
 		~forward_list() noexcept;
 
 		forward_list(std::size_t size, const Allocator& alloc = Allocator{})
-		    requires std::is_default_constructible_v<T>;
+		    requires std::constructible_from<T>;
 
 		forward_list(std::size_t size,
 		             const T& value         = T{},
 		             const Allocator& alloc = Allocator{})
-		    requires(!std::is_default_constructible_v<T> &&
+		    requires(!std::constructible_from<T> &&
 		             std::constructible_from<T, const T&>);
 
 		template <std::input_iterator InputIt>
@@ -93,7 +93,7 @@ namespace tcl
 		    requires std::equality_comparable_with<T, U>;
 
 		T& push_front(T&& value)
-		    requires std::constructible_from<T, T&&>;
+		    requires std::move_constructible<T>;
 		T& push_front(const T& value)
 		    requires std::constructible_from<T, const T&>;
 
@@ -101,7 +101,7 @@ namespace tcl
 		T& emplace_front(Args&&... args);
 
 		T& insert_after(const_iterator pos, T&& value)
-		    requires std::constructible_from<T, T&&>;
+		    requires std::move_constructible<T>;
 		T& insert_after(const_iterator pos, const T& value)
 		    requires std::constructible_from<T, const T&>;
 
@@ -118,17 +118,17 @@ namespace tcl
 		T& emplace_after(const_iterator pos, Args&&... args);
 
 		void pop_front() noexcept
-		    requires(!std::constructible_from<T, T &&>);
+		    requires(!std::move_constructible<T>);
 
 		T pop_front() noexcept(std::is_nothrow_move_constructible_v<T>)
-		    requires std::constructible_from<T, T&&>;
+		    requires std::move_constructible<T>;
 
 		void erase_after(const_iterator pos) noexcept
-		    requires(!std::constructible_from<T, T &&>);
+		    requires(!std::move_constructible<T>);
 
 		T erase_after(const_iterator pos) noexcept(
 		    std::is_nothrow_move_constructible_v<T>)
-		    requires std::constructible_from<T, T&&>;
+		    requires std::move_constructible<T>;
 
 		/**
 		 * Erases elements in the given range.
@@ -149,7 +149,7 @@ namespace tcl
 		void assign(InputIt first, std::sentinel_for<InputIt> auto last)
 		    requires std::constructible_from<T,
 		                                     std::iter_reference_t<InputIt>> ||
-		             (std::is_default_constructible_v<T> &&
+		             (std::constructible_from<T> &&
 		              std::is_nothrow_assignable_v<
 		                  T&,
 		                  std::iter_reference_t<InputIt>>);
@@ -159,7 +159,7 @@ namespace tcl
 		    requires std::constructible_from<
 		                 T,
 		                 std::ranges::range_reference_t<R>> ||
-		             (std::is_default_constructible_v<T> &&
+		             (std::constructible_from<T> &&
 		              std::is_nothrow_assignable_v<
 		                  T&,
 		                  std::ranges::range_reference_t<R>>);
@@ -177,10 +177,10 @@ namespace tcl
 		[[nodiscard]] forward_list split_after(const_iterator pos) noexcept(
 		    node_alloc_traits::is_always_equal::value &&
 		        noexcept(Allocator{}) ||
-		    std::is_nothrow_constructible_v<T, const T&>);
+		    std::is_nothrow_copy_constructible_v<T>);
 
 		void resize(std::size_t n)
-		    requires std::is_default_constructible_v<T>;
+		    requires std::constructible_from<T>;
 
 		void clear() noexcept;
 
@@ -224,9 +224,9 @@ namespace tcl
 		 */
 		forward_list& join(forward_list& other) noexcept(
 		    node_alloc_traits::is_always_equal::value ||
-		    std::is_nothrow_constructible_v<T, T&&>)
+		    std::is_nothrow_move_constructible_v<T>)
 		    requires node_alloc_traits::is_always_equal::value
-		             || std::is_nothrow_constructible_v<T, T&&> ||
+		             || std::is_nothrow_move_constructible_v<T> ||
 		             std::constructible_from<T, const T&>;
 
 		forward_list& swap(forward_list& other) noexcept;

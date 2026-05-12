@@ -29,7 +29,7 @@ namespace tcl
 	template <typename T, typename Allocator>
 	inline forward_list<T, Allocator>::forward_list(std::size_t size,
 	                                                const Allocator& alloc)
-	    requires std::is_default_constructible_v<T>
+	    requires std::constructible_from<T>
 	    : alloc_(alloc)
 	{
 		try
@@ -52,7 +52,7 @@ namespace tcl
 	inline forward_list<T, Allocator>::forward_list(std::size_t size,
 	                                                const T& value,
 	                                                const Allocator& alloc)
-	    requires(!std::is_default_constructible_v<T> &&
+	    requires(!std::constructible_from<T> &&
 	             std::constructible_from<T, const T&>)
 	    : alloc_(alloc)
 	{
@@ -264,7 +264,7 @@ namespace tcl
 
 	template <typename T, typename Allocator>
 	inline T& forward_list<T, Allocator>::push_front(T&& value)
-	    requires std::constructible_from<T, T&&>
+	    requires std::move_constructible<T>
 	{
 		Node* node = create_node(node_, std::move(value));
 		node_      = node;
@@ -295,7 +295,7 @@ namespace tcl
 	template <typename T, typename Allocator>
 	inline T& forward_list<T, Allocator>::insert_after(const_iterator pos,
 	                                                   T&& value)
-	    requires std::constructible_from<T, T&&>
+	    requires std::move_constructible<T>
 	{
 		Node* node      = create_node(pos.node_->next, std::move(value));
 		pos.node_->next = node;
@@ -390,7 +390,7 @@ namespace tcl
 
 	template <typename T, typename Allocator>
 	inline void forward_list<T, Allocator>::pop_front() noexcept
-	    requires(!std::constructible_from<T, T &&>)
+	    requires(!std::move_constructible<T>)
 	{
 		destroy_node(std::exchange(node_, node_->next));
 		--size_;
@@ -399,7 +399,7 @@ namespace tcl
 	template <typename T, typename Allocator>
 	inline T forward_list<T, Allocator>::pop_front() noexcept(
 	    std::is_nothrow_move_constructible_v<T>)
-	    requires std::constructible_from<T, T&&>
+	    requires std::move_constructible<T>
 	{
 		T value = std::move(node_->value);
 		destroy_node(std::exchange(node_, node_->next));
@@ -410,7 +410,7 @@ namespace tcl
 	template <typename T, typename Allocator>
 	inline void forward_list<T, Allocator>::erase_after(
 	    const_iterator pos) noexcept
-	    requires(!std::constructible_from<T, T &&>)
+	    requires(!std::move_constructible<T>)
 	{
 		destroy_node(std::exchange(pos.node_->next, pos.node_->next->next));
 		--size_;
@@ -419,7 +419,7 @@ namespace tcl
 	template <typename T, typename Allocator>
 	inline T forward_list<T, Allocator>::erase_after(
 	    const_iterator pos) noexcept(std::is_nothrow_move_constructible_v<T>)
-	    requires std::constructible_from<T, T&&>
+	    requires std::move_constructible<T>
 	{
 		T value = std::move(pos.node_->next->value);
 		destroy_node(std::exchange(pos.node_->next, pos.node_->next->next));
@@ -442,7 +442,7 @@ namespace tcl
 	inline void forward_list<T, Allocator>::assign(
 	    InputIt first, std::sentinel_for<InputIt> auto last)
 	    requires std::constructible_from<T, std::iter_reference_t<InputIt>> ||
-	             (std::is_default_constructible_v<T> &&
+	             (std::constructible_from<T> &&
 	              std::is_nothrow_assignable_v<T&,
 	                                           std::iter_reference_t<InputIt>>)
 	{
@@ -503,7 +503,7 @@ namespace tcl
 	inline void forward_list<T, Allocator>::assign(R&& r)
 	    requires std::constructible_from<T,
 	                                     std::ranges::range_reference_t<R>> ||
-	             (std::is_default_constructible_v<T> &&
+	             (std::constructible_from<T> &&
 	              std::is_nothrow_assignable_v<
 	                  T&,
 	                  std::ranges::range_reference_t<R>>)
@@ -570,7 +570,7 @@ namespace tcl
 	inline forward_list<T, Allocator>
 	forward_list<T, Allocator>::split_after(const_iterator pos) noexcept(
 	    node_alloc_traits::is_always_equal::value && noexcept(Allocator{}) ||
-	    std::is_nothrow_constructible_v<T, const T&>)
+	    std::is_nothrow_copy_constructible_v<T>)
 	{
 		if (pos == end()) [[unlikely]]
 		{
@@ -594,7 +594,7 @@ namespace tcl
 
 	template <typename T, typename Allocator>
 	inline void forward_list<T, Allocator>::resize(std::size_t n)
-	    requires std::is_default_constructible_v<T>
+	    requires std::constructible_from<T>
 	{
 		if (n == 0) [[unlikely]]
 		{
@@ -780,9 +780,9 @@ namespace tcl
 	inline forward_list<T, Allocator>&
 	forward_list<T, Allocator>::join(forward_list& other) noexcept(
 	    node_alloc_traits::is_always_equal::value ||
-	    std::is_nothrow_constructible_v<T, T&&>)
+	    std::is_nothrow_move_constructible_v<T>)
 	    requires node_alloc_traits::is_always_equal::value
-	             || std::is_nothrow_constructible_v<T, T&&> ||
+	             || std::is_nothrow_move_constructible_v<T> ||
 	             std::constructible_from<T, const T&>
 	{
 		if (size_ == 0) [[unlikely]]
