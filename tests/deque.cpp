@@ -1,7 +1,24 @@
 #include <catch2/catch_test_macros.hpp>
 #include <tcl/deque.hpp>
 
+struct NoMove
+{
+	int v;
+
+	NoMove(int v)
+	    : v(v)
+	{}
+
+	~NoMove() noexcept = default;
+
+	NoMove(const NoMove&)            = default;
+	NoMove& operator=(const NoMove&) = default;
+	NoMove(NoMove&&)                 = delete;
+	NoMove& operator=(NoMove&&)      = delete;
+};
+
 template class tcl::deque<int>;
+template class tcl::deque<NoMove>;
 
 // --- reserve -----------------------------------------------------------------
 
@@ -176,20 +193,6 @@ TEST_CASE("pop_back returns value and shrinks", "[deque][pop]")
 TEST_CASE("pop_front on non-movable type shrinks without return",
           "[deque][pop]")
 {
-	struct NoMove
-	{
-		int v;
-
-		NoMove(int v)
-		    : v(v)
-		{}
-
-		NoMove(const NoMove&)            = default;
-		NoMove& operator=(const NoMove&) = default;
-		NoMove(NoMove&&)                 = delete;
-		NoMove& operator=(NoMove&&)      = delete;
-	};
-
 	tcl::deque<NoMove> d;
 	d.push_back(NoMove{42});
 	d.push_back(NoMove{43});
@@ -200,20 +203,6 @@ TEST_CASE("pop_front on non-movable type shrinks without return",
 
 TEST_CASE("pop_back on non-movable type shrinks without return", "[deque][pop]")
 {
-	struct NoMove
-	{
-		int v;
-
-		NoMove(int v)
-		    : v(v)
-		{}
-
-		NoMove(const NoMove&)            = default;
-		NoMove& operator=(const NoMove&) = default;
-		NoMove(NoMove&&)                 = delete;
-		NoMove& operator=(NoMove&&)      = delete;
-	};
-
 	tcl::deque<NoMove> d;
 	d.push_back(NoMove{42});
 	d.push_back(NoMove{43});
