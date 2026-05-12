@@ -3,6 +3,7 @@ project(tcl LANGUAGES CXX)
 
 set(components forward_list)
 
+option(TCL_INSTALL "Create install target" ON)
 option(TCL_BUILD_TESTS "Build unit tests" ON)
 option(TCL_ENABLE_COVERAGE "Enable coverage reporting" OFF)
 option(TCL_ENABLE_ASAN "Enable address sanitization" OFF)
@@ -16,7 +17,12 @@ add_library(${PROJECT_NAME} INTERFACE ${headers} ${inlines})
 
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_20)
 
-target_include_directories(${PROJECT_NAME} INTERFACE "include")
+target_include_directories(
+    ${PROJECT_NAME}
+    INTERFACE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
 
 if(TCL_BUILD_TESTS)
     include(CTest)
@@ -124,4 +130,24 @@ if(TCL_BUILD_TESTS)
 
     include(Catch)
     catch_discover_tests(${PROJECT_NAME}_tests)
+endif()
+
+if(TCL_INSTALL)
+    if(TCL_VERSION)
+        install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/" DESTINATION include)
+
+        install(TARGETS ${PROJECT_NAME} EXPORT ${PROJECT_NAME}Targets)
+
+        install(
+            EXPORT ${PROJECT_NAME}Targets
+            FILE ${PROJECT_NAME}Targets.cmake
+            NAMESPACE ${PROJECT_NAME}::
+            DESTINATION lib/cmake/${PROJECT_NAME}
+        )
+    else()
+        message(
+            WARNING
+            "Install targets could not be made. Missing: TCL_VERSION"
+        )
+    endif()
 endif()
