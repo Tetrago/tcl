@@ -40,7 +40,7 @@ namespace tcl
 		using allocator_type = Allocator;
 
 		forward_list(const Allocator& alloc = Allocator{}) noexcept(
-		    noexcept(Allocator{}));
+		    noexcept(Allocator{alloc}));
 
 		~forward_list() noexcept;
 
@@ -262,7 +262,7 @@ namespace tcl
 
 		[[nodiscard]] allocator_type get_allocator() const noexcept
 		{
-			return alloc_;
+			return typename node_alloc_traits::template rebind_alloc<T>(alloc_);
 		}
 
 	private:
