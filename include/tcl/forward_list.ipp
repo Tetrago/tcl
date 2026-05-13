@@ -9,7 +9,7 @@ namespace tcl
 {
 	template <typename T, typename Allocator>
 	inline forward_list<T, Allocator>::forward_list(
-	    const Allocator& alloc) noexcept(noexcept(Allocator{}))
+	    const Allocator& alloc) noexcept(noexcept(Allocator{alloc}))
 	    : alloc_(alloc)
 	{}
 
